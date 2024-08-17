@@ -20,7 +20,7 @@ jobs:
 
       - name: Setup remote for upstream
         run: |
-          git remote add upstream https://github.com/ORIGINAL_OWNER/REPOSITORY_NAME.git || echo "Upstream already exists"
+          git remote add upstream https://github.com/josefdc/pereiratechtalks.com || echo "Upstream already exists"
 
       - name: Verify fork is up to date
         run: |
