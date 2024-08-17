@@ -106,3 +106,5 @@ Si tienes preguntas o sugerencias, no dudes en unirte a nuestra comunidad en tel
 ---
 
 ¡Gracias por ser parte de Pereira Tech Talks! Juntos estamos construyendo una comunidad tecnológica más fuerte y colaborativa.
+
+`esto es una prueba de funcionamiento`
