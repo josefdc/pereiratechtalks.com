@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - 'main'
-      - 'test-fork-workflow'
     types:
       - opened
       - reopened
@@ -42,6 +41,7 @@ jobs:
           ENV_LABELS: ${{ toJSON(github.event.pull_request.labels) }}
         run: |
           IFS=',' read -ra SIZE_LABELS_ARR <<< "$SIZE_LABELS"
+          # Remove the quotes from SIZE_LABELS_ARR
           SIZE_LABELS_ARR=("${SIZE_LABELS_ARR[@]//\"}")
 
           # Get PR Labels
@@ -61,33 +61,46 @@ jobs:
               fi
             done
           done
-
       - name: Step 3 - 🧪🧪 Calculate PR Size and Label
         run: |
           CURRENT_SIZE="${{ steps.check_pr_size_label_step.outputs.size_label_found }}"
           PR_BASE_REF=${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF=${{ github.event.pull_request.head.ref }}
+          
+          BASE_EXISTS=true
+          HEAD_EXISTS=true
 
           # Verificar si la rama base existe en el repositorio remoto
           if ! git ls-remote --exit-code --heads origin $PR_BASE_REF; then
-            echo "Advertencia: La rama base '$PR_BASE_REF' no existe en el repositorio remoto. Continuando sin compararla."
+            echo "Advertencia: La rama base '$PR_BASE_REF' no existe en el repositorio remoto."
+            BASE_EXISTS=false
           else
             git fetch origin $PR_BASE_REF
           fi
 
           # Verificar si la rama de cabecera existe en el repositorio remoto
           if ! git ls-remote --exit-code --heads origin $PR_HEAD_REF; then
-            echo "Advertencia: La rama de cabecera '$PR_HEAD_REF' no existe en el repositorio remoto. Continuando sin compararla."
+            echo "Advertencia: La rama de cabecera '$PR_HEAD_REF' no existe en el repositorio remoto."
+            HEAD_EXISTS=false
           else
             git fetch origin $PR_HEAD_REF
           fi
 
-          # Continuar solo si ambos fetch han sido exitosos
-          if [ -z "$PR_BASE_REF" ] || [ -z "$PR_HEAD_REF" ]; then
+          # Si ambas ramas no existen, no tiene sentido continuar
+          if [ "$BASE_EXISTS" = false ] && [ "$HEAD_EXISTS" = false ]; then
+            echo "Ninguna de las ramas está disponible, saliendo del proceso."
             exit 0
           fi
 
-          CHANGES_STATS=$(git diff --shortstat origin/$PR_BASE_REF..origin/$PR_HEAD_REF)
+          # Si solo una de las ramas existe, usa esa rama para la comparación
+          if [ "$BASE_EXISTS" = true ] && [ "$HEAD_EXISTS" = false ]; then
+            CHANGES_STATS=$(git diff --shortstat origin/$PR_BASE_REF)
+          elif [ "$HEAD_EXISTS" = true ] && [ "$BASE_EXISTS" = false ]; then
+            CHANGES_STATS=$(git diff --shortstat origin/$PR_HEAD_REF)
+          else
+            CHANGES_STATS=$(git diff --shortstat origin/$PR_BASE_REF..origin/$PR_HEAD_REF)
+          fi
+
           echo $CHANGES_STATS
           LINES_CHANGED=$(echo $CHANGES_STATS | awk '{print $4+$6}')
           echo "Lines changed: $LINES_CHANGED"
@@ -152,6 +165,7 @@ jobs:
               https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
               -d "{\"body\": \"$WARNING_MESSAGE\"}"
 
+
       - name: Step 4 - 🧪🧪🧪 Check "TITLE" length
         run: |
           MIN_TITLE_LENGTH=10
@@ -167,7 +181,7 @@ jobs:
           MIN_BODY_LENGTH=30
           PR_BODY='${{ github.event.pull_request.body }}'
           BODY_LENGTH=$(echo -n "$PR_BODY" | wc -c)
-          if [ "$BODY_LENGTH" < "$MIN_BODY_LENGTH" ]; then
+          if [ "$BODY_LENGTH" -lt "$MIN_BODY_LENGTH" ]; then
             echo "Pull request body is too short. It must have at least $MIN_BODY_LENGTH characters."
             exit 1
           fi
