@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - 'main'
+      - 'test-fork-workflow'
     types:
       - opened
       - reopened
@@ -41,7 +42,6 @@ jobs:
           ENV_LABELS: ${{ toJSON(github.event.pull_request.labels) }}
         run: |
           IFS=',' read -ra SIZE_LABELS_ARR <<< "$SIZE_LABELS"
-          # Remove the quotes from SIZE_LABELS_ARR
           SIZE_LABELS_ARR=("${SIZE_LABELS_ARR[@]//\"}")
 
           # Get PR Labels
@@ -67,6 +67,19 @@ jobs:
           CURRENT_SIZE="${{ steps.check_pr_size_label_step.outputs.size_label_found }}"
           PR_BASE_REF=${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF=${{ github.event.pull_request.head.ref }}
+
+          # Verifica si la rama base existe en el repositorio remoto
+          if ! git ls-remote --exit-code --heads origin $PR_BASE_REF; then
+            echo "Error: La rama base '$PR_BASE_REF' no existe en el repositorio remoto."
+            exit 1
+          fi
+
+          # Verifica si la rama de la cabecera existe en el repositorio remoto
+          if ! git ls-remote --exit-code --heads origin $PR_HEAD_REF; then
+            echo "Error: La rama de la cabecera '$PR_HEAD_REF' no existe en el repositorio remoto."
+            exit 1
+          fi
+
           git fetch origin $PR_BASE_REF
           git fetch origin $PR_HEAD_REF
           CHANGES_STATS=$(git diff --shortstat origin/$PR_BASE_REF..origin/$PR_HEAD_REF)
@@ -106,7 +119,7 @@ jobs:
             CURRENT_SIZE_ENCODED=$(jq -rn --arg str "$CURRENT_SIZE" '$str|@uri')
             curl \
               -X DELETE \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Authorization: token ${{ secrets.AUTOMATION_GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/$CURRENT_SIZE_ENCODED
           fi
@@ -114,7 +127,7 @@ jobs:
           echo "Adding new size label..."
           curl \
             -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: token ${{ secrets.AUTOMATION_GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels \
             -d "{\"labels\": [\"${SIZE}\"]}"
@@ -128,7 +141,7 @@ jobs:
             echo "Adding warning comment..."
             curl \
               -X POST \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Authorization: token ${{ secrets.AUTOMATION_GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
               -d "{\"body\": \"$WARNING_MESSAGE\"}"
