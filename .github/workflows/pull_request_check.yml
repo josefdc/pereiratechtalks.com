@@ -71,18 +71,21 @@ jobs:
           # Verificar si la rama base existe en el repositorio remoto
           if ! git ls-remote --exit-code --heads origin $PR_BASE_REF; then
             echo "Advertencia: La rama base '$PR_BASE_REF' no existe en el repositorio remoto. Continuando sin compararla."
-            exit 0
+          else
+            git fetch origin $PR_BASE_REF
           fi
 
           # Verificar si la rama de cabecera existe en el repositorio remoto
           if ! git ls-remote --exit-code --heads origin $PR_HEAD_REF; then
             echo "Advertencia: La rama de cabecera '$PR_HEAD_REF' no existe en el repositorio remoto. Continuando sin compararla."
-            exit 0
+          else
+            git fetch origin $PR_HEAD_REF
           fi
 
-          # Intentar hacer fetch de las ramas si existen
-          git fetch origin $PR_BASE_REF
-          git fetch origin $PR_HEAD_REF
+          # Continuar solo si ambos fetch han sido exitosos
+          if [ -z "$PR_BASE_REF" ] || [ -z "$PR_HEAD_REF" ]; then
+            exit 0
+          fi
 
           CHANGES_STATS=$(git diff --shortstat origin/$PR_BASE_REF..origin/$PR_HEAD_REF)
           echo $CHANGES_STATS
@@ -149,8 +152,6 @@ jobs:
               https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
               -d "{\"body\": \"$WARNING_MESSAGE\"}"
 
-
-
       - name: Step 4 - 🧪🧪🧪 Check "TITLE" length
         run: |
           MIN_TITLE_LENGTH=10
@@ -166,7 +167,7 @@ jobs:
           MIN_BODY_LENGTH=30
           PR_BODY='${{ github.event.pull_request.body }}'
           BODY_LENGTH=$(echo -n "$PR_BODY" | wc -c)
-          if [ "$BODY_LENGTH" -lt "$MIN_BODY_LENGTH" ]; then
+          if [ "$BODY_LENGTH" < "$MIN_BODY_LENGTH" ]; then
             echo "Pull request body is too short. It must have at least $MIN_BODY_LENGTH characters."
             exit 1
           fi
