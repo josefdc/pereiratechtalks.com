@@ -70,14 +70,14 @@ jobs:
 
           # Verificar si la rama base existe en el repositorio remoto
           if ! git ls-remote --exit-code --heads origin $PR_BASE_REF; then
-            echo "Error: La rama base '$PR_BASE_REF' no existe en el repositorio remoto."
-            exit 1
+            echo "Advertencia: La rama base '$PR_BASE_REF' no existe en el repositorio remoto. Continuando sin compararla."
+            exit 0
           fi
 
           # Verificar si la rama de cabecera existe en el repositorio remoto
           if ! git ls-remote --exit-code --heads origin $PR_HEAD_REF; then
-            echo "Error: La rama de cabecera '$PR_HEAD_REF' no existe en el repositorio remoto."
-            exit 1
+            echo "Advertencia: La rama de cabecera '$PR_HEAD_REF' no existe en el repositorio remoto. Continuando sin compararla."
+            exit 0
           fi
 
           # Intentar hacer fetch de las ramas si existen
@@ -117,7 +117,7 @@ jobs:
             exit 0
           fi
 
-          if [ -n "$CURRENT_SIZE" ];then
+          if [ -n "$CURRENT_SIZE" ]; then
             echo "Removing current size label..."
             CURRENT_SIZE_ENCODED=$(jq -rn --arg str "$CURRENT_SIZE" '$str|@uri')
             curl \
@@ -137,7 +137,7 @@ jobs:
 
           if [ "$SIZE" == "Size - L" ] || [ "$SIZE" == "Size - XL" ] || [ "$SIZE" == "Size - XXL" ]; then
             WARNING_MESSAGE="⚠️ WARNING: This PR is large.\n"
-            if [ "$SIZE" == "Size - XL" ] || [ "$SIZE" == "Size - XXL" ];then
+            if [ "$SIZE" == "Size - XL" ] || [ "$SIZE" == "Size - XXL" ]; then
               WARNING_MESSAGE="⚠️ 🔴 WARNING: This PR is too large.\nConsider breaking it down into smaller ones for faster and easier review next time.\n"
             fi
             WARNING_MESSAGE+="Make sure your code has tests and you have done the necessary QA."
@@ -148,6 +148,7 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
               -d "{\"body\": \"$WARNING_MESSAGE\"}"
+
 
 
       - name: Step 4 - 🧪🧪🧪 Check "TITLE" length
