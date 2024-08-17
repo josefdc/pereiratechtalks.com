@@ -4,19 +4,16 @@ on:
   pull_request:
     branches:
       - 'main'
-      - 'test-fork-workflow'
     types:
       - opened
       - reopened
       - synchronize
       - edited
 
-env:
-  SIZE_LABELS: >-
-    "Size - XS","Size - S","Size - M","Size - L","Size - XL","Size - XXL"
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
+  pull-requests: write  # Para aprobar el PR
+  issues: write  # Para comentar en el PR
 
 jobs:
   pull_request_content_and_size_check:
@@ -35,7 +32,7 @@ jobs:
           git config user.email "pereiratechtalks@gmail.com"
           gh auth login --with-token <<< "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Step 2 - 🧪 Check pr size label
+      - name: Step 2 - 🧪 Check PR size label
         id: check_pr_size_label_step
         env:
           ENV_LABELS: ${{ toJSON(github.event.pull_request.labels) }}
@@ -58,12 +55,24 @@ jobs:
             done
           done
 
-      - name: Step 3 - 🧪🧪 Calculate PR Size and Label
+      - name: Step 3 - Check if PR is from a fork
+        id: check_fork
+        run: |
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "This PR is from a forked repository."
+            echo "is_fork=true" >> $GITHUB_ENV
+          else
+            echo "This PR is from the base repository."
+            echo "is_fork=false" >> $GITHUB_ENV
+          fi
+
+      - name: Step 4 - 🧪🧪 Calculate PR Size and Label
+        if: env.is_fork == 'false' || github.event.pull_request.merged == true
         run: |
           CURRENT_SIZE="${{ steps.check_pr_size_label_step.outputs.size_label_found }}"
           PR_BASE_REF=${{ github.event.pull_request.base.ref }}
           PR_HEAD_REF=${{ github.event.pull_request.head.ref }}
-          
+
           # Fetch base branch
           if git ls-remote --exit-code --heads origin $PR_BASE_REF; then
             git fetch origin $PR_BASE_REF
@@ -111,7 +120,7 @@ jobs:
             echo "No size change detected."
             exit 0
           fi
-          
+
           if [ -n "$CURRENT_SIZE" ]; then
             echo "Removing current size label..."
             CURRENT_SIZE_ENCODED=$(jq -rn --arg str "$CURRENT_SIZE" '$str|@uri')
@@ -145,7 +154,7 @@ jobs:
               -d "{\"body\": \"$WARNING_MESSAGE\"}"
           fi
 
-      - name: Step 4 - 🧪🧪🧪 Check "TITLE" length
+      - name: Step 5 - 🧪🧪🧪 Check "TITLE" length
         run: |
           MIN_TITLE_LENGTH=10
           PR_TITLE="${{ github.event.pull_request.title }}"
@@ -155,7 +164,7 @@ jobs:
             exit 1
           fi
 
-      - name: Step 5 - 🧪🧪🧪🧪 Check "BODY" length
+      - name: Step 6 - 🧪🧪🧪🧪 Check "BODY" length
         run: |
           MIN_BODY_LENGTH=30
           PR_BODY='${{ github.event.pull_request.body }}'
