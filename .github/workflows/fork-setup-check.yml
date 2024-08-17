@@ -17,11 +17,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Clonar todo el historial de la rama
+
+      - name: Ensure we are on the correct branch
+        run: |
+          git checkout ${{ github.event.pull_request.head.ref }}
 
       - name: Setup remote for upstream
         run: |
           git remote add upstream https://github.com/josefdc/pereiratechtalks.com || echo "Upstream already exists"
-
+      
       - name: Verify fork is up to date
         run: |
           echo "Fetching upstream..."
