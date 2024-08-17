@@ -1,4 +1,4 @@
----
+
 blank_issues_enabled: false
 contact_links:
   - name: "Reporte de Bugs"
@@ -16,4 +16,3 @@ contact_links:
   - name: "Otros"
     url: "/issues/new?template=other.md"
     about: "Para issues que no encajan en las otras categorías."
----
